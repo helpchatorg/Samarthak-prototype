@@ -1,0 +1,1781 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Samarthak - Library Management</title>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf-autotable/3.5.23/jspdf.plugin.autotable.min.js"></script>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/cropperjs/1.5.13/cropper.min.css">
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/cropperjs/1.5.13/cropper.min.js"></script>
+    <script defer src="https://cdn.jsdelivr.net/npm/@vladmandic/face-api/dist/face-api.js"></script>
+    <style>
+        :root {
+            --primary: #2563eb;
+            --bg: #f8fafc;
+            --available: #22c55e;
+            --booked: #ef4444;
+            --selected: #f59e0b;
+            --dark: #1e293b;
+            --grey: #64748b;
+        }
+        body { font-family: 'Inter', 'Segoe UI', sans-serif; background: var(--bg); margin: 0; padding-bottom: 80px; color: var(--dark); }
+        
+        #login-sec { 
+            background: #f1f5f9;
+            background-image: radial-gradient(at 0% 0%, rgba(37, 99, 235, 0.1) 0, transparent 50%), 
+                              radial-gradient(at 100% 0%, rgba(79, 70, 229, 0.1) 0, transparent 50%);
+            display: flex; align-items: center; justify-content: center; min-height: 100vh; padding: 20px; 
+        }
+        .login-card { 
+            width: 100%; max-width: 400px; padding: 40px; border-radius: 28px; 
+            background: white;
+            box-shadow: 0 25px 50px -12px rgba(0,0,0,0.1); border: 1px solid #ffffff; 
+        }
+        .login-header { text-align: center; margin-bottom: 30px; }
+        .login-header h1 { 
+            font-size: 2.2rem; background: linear-gradient(to right, #2563eb, #4f46e5);
+            -webkit-background-clip: text; -webkit-text-fill-color: transparent;
+            margin: 0; font-weight: 800;
+        }
+
+        .pass-wrapper { position: relative; }
+        .toggle-pass { 
+            position: absolute; right: 12px; top: 38px; cursor: pointer; 
+            font-size: 0.8rem; color: var(--primary); font-weight: 600;
+        }
+
+        .crop-container { 
+            width: 100%; background: #000; border-radius: 12px; 
+            overflow: hidden; margin-top: 15px; display: none; flex-direction: column;
+        }
+        #crop-image { max-width: 100%; display: block; }
+        .crop-controls { background: #1e293b; padding: 10px; display: flex; justify-content: center; gap: 10px; }
+        .apply-crop-btn { width: auto; padding: 10px 20px; background: #10b981; margin: 0; color: white; border:none; border-radius:8px; font-weight:bold; cursor:pointer;}
+        .cancel-crop-btn { width: auto; padding: 10px 20px; background: #ef4444; margin: 0; color: white; border:none; border-radius:8px; font-weight:bold; cursor:pointer;}
+
+        .bottom-nav { position: fixed; bottom: 0; width: 100%; background: white; display: flex; border-top: 1px solid #e2e8f0; z-index: 1000; box-shadow: 0 -2px 10px rgba(0,0,0,0.05); display: none; }
+        .nav-item { flex: 1; text-align: center; padding: 12px; font-weight: 600; color: #64748b; cursor: pointer; font-size: 0.8rem; transition: 0.3s; }
+        .nav-item.active { color: var(--primary); border-top: 3px solid var(--primary); background: #f0f7ff; }
+
+        .container { max-width: 800px; margin: auto; padding: 15px; display: none; }
+        .section { display: none; }
+        .section.active { display: block; }
+        
+        .panel { background: white; padding: 25px; border-radius: 16px; box-shadow: 0 4px 6px -1px rgba(0,0,0,0.1); margin-bottom: 20px; border: 1px solid #e2e8f0; }
+        h2 { margin-top: 0; font-size: 1.1rem; color: var(--dark); border-bottom: 2px solid #f1f5f9; padding-bottom: 10px; margin-bottom: 15px; text-transform: uppercase; letter-spacing: 0.5px; }
+        
+        .input-group { margin-bottom: 15px; }
+        label { display: block; font-size: 0.75rem; font-weight: 700; color: #475569; margin-bottom: 5px; text-transform: uppercase; }
+        input, select, textarea { width: 100%; padding: 12px; border: 1.5px solid #cbd5e1; border-radius: 10px; box-sizing: border-box; font-size: 0.95rem; font-family: inherit; }
+        input:focus, textarea:focus { border-color: var(--primary); outline: none; box-shadow: 0 0 0 3px rgba(37,99,235,0.1); }
+        
+        input[readonly], select[readonly], input[disabled], select[disabled] { background-color: #f1f5f9; cursor: default; }
+
+        .error-msg { color: var(--booked); font-size: 0.7rem; margin-top: 4px; display: none; font-weight: 600; }
+        .info-text { font-size: 0.7rem; color: var(--grey); margin-top: 5px; line-height: 1.2; }
+        
+        button { width: 100%; padding: 14px; background: var(--primary); color: white; border: none; border-radius: 10px; font-weight: 700; cursor: pointer; transition: 0.2s; margin-top: 5px; }
+        button:active { transform: scale(0.98); }
+
+        .price-tag { background: #f0f7ff; padding: 12px; border-radius: 10px; font-weight: 800; color: var(--primary); margin-bottom: 15px; text-align: center; font-size: 1.1rem; border: 1px dashed var(--primary); }
+        .qr-section { display: none; text-align: center; margin: 15px 0; padding: 15px; border: 2px dashed #cbd5e1; border-radius: 12px; }
+        .qr-section img { width: 150px; }
+
+        .seat-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(50px, 1fr)); gap: 10px; margin-top: 15px; }
+        .seat { height: 45px; border-radius: 8px; display: flex; align-items: center; justify-content: center; font-weight: bold; cursor: pointer; color: white; background: var(--available); font-size: 0.8rem; }
+        .seat.booked { background: var(--booked); cursor: not-allowed; opacity: 0.7; }
+        .seat.selected { background: var(--selected); outline: 3px solid #fbbf24; }
+
+        .history-card { background: white; padding: 16px; border-radius: 12px; margin-bottom: 12px; border-left: 6px solid var(--primary); box-shadow: 0 2px 4px rgba(0,0,0,0.05); }
+        .card-actions { display: flex; gap: 8px; margin-top: 12px; flex-wrap: wrap; }
+        .btn-edit-h { background: var(--selected); padding: 8px; font-size: 0.7rem; flex: 1; min-width: 60px; }
+        .btn-del-h { background: var(--booked); padding: 8px; font-size: 0.7rem; flex: 1; min-width: 60px; }
+        .btn-att-h { background: #64748b; padding: 8px; font-size: 0.7rem; flex: 1; min-width: 60px; color: white; border:none; border-radius:10px; font-weight:bold; cursor:pointer;}
+        .btn-dl-h { background: var(--available); padding: 4px 8px; font-size: 0.6rem; border:none; border-radius:4px; color:white; cursor:pointer;}
+
+        .shift-item { background: #f8fafc; padding: 12px; border-radius: 10px; margin-bottom: 10px; display: flex; justify-content: space-between; align-items: center; border: 1px solid #e2e8f0; }
+        .shift-controls { display: flex; gap: 5px; }
+        .btn-del-s { background: #fee2e2; color: #ef4444; border: none; padding: 6px 12px; border-radius: 6px; font-size: 0.7rem; cursor: pointer; font-weight: bold; }
+        .btn-edit-s { background: #e0f2fe; color: #0369a1; border: none; padding: 6px 12px; border-radius: 6px; font-size: 0.7rem; cursor: pointer; font-weight: bold; }
+        
+        .preview-img { width: 80px; height: 80px; border-radius: 10px; object-fit: cover; display: none; margin-top: 10px; border: 2px solid var(--primary); }
+        .sig-preview { height: 50px; width: 150px; object-fit: contain; }
+
+        .btn-fee-h { background: #6366f1; padding: 8px; font-size: 0.7rem; flex: 1; min-width: 60px; color: white; border:none; border-radius:10px; font-weight:bold; cursor:pointer;}
+        .fee-history-wrapper { width: 100%; overflow-x: auto; margin-top: 10px; }
+        .fee-history-table { width: 100%; border-collapse: collapse; min-width: 600px; font-size: 0.8rem; }
+        .fee-history-table th, .fee-history-table td { border: 1px solid #e2e8f0; padding: 10px; text-align: left; }
+        .fee-history-table th { background: #f8fafc; color: var(--grey); text-transform: uppercase; font-size: 0.7rem; }
+        .btn-fee-edit { background: #f59e0b; color: white; border:none; padding:4px 8px; border-radius:4px; font-size:0.6rem; cursor:pointer; margin-right:2px;}
+        .btn-fee-del { background: #ef4444; color: white; border:none; padding:4px 8px; border-radius:4px; font-size:0.6rem; cursor:pointer;}
+
+        .reg-prefix-group { display: flex; align-items: center; border: 1.5px solid #cbd5e1; border-radius: 10px; overflow: hidden; background: #fff; }
+        .reg-prefix-group span { padding: 12px; background: #f1f5f9; color: var(--grey); font-weight: bold; border-right: 1.5px solid #cbd5e1; }
+        .reg-prefix-group input { border: none !important; border-radius: 0 !important; }
+
+        .search-container { width: 100%; margin-bottom: 10px; }
+        .search-container input { padding: 10px 18px; font-size: 0.9rem; border-radius: 30px; border: 1.5px solid #e2e8f0; background: #ffffff; transition: 0.3s; }
+        .filter-tabs { display: flex; gap: 8px; margin-top: 8px; overflow-x: auto; padding-bottom: 5px; }
+        .filter-tab { flex: 1; min-width: 80px; padding: 8px; font-size: 0.75rem; border-radius: 20px; border: 1px solid #e2e8f0; background: white; color: var(--grey); cursor: pointer; font-weight: 600; text-align: center; white-space: nowrap; }
+        .filter-tab.active { background: var(--primary); color: white; border-color: var(--primary); }
+
+        #stu-profile-content { display: grid; grid-template-columns: 80px 1fr; gap: 15px; align-items: center; background: #f0f7ff; padding: 15px; border-radius: 15px; overflow: hidden; }
+        #stu-profile-content div { min-width: 0; word-break: break-all; }
+
+        @media (min-width: 768px) { .grid-2-col { display: grid; grid-template-columns: 1fr 1fr; gap: 20px; } }
+
+        .camera-overlay { position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.9); z-index: 2000; display: none; flex-direction: column; align-items: center; justify-content: center; }
+        .camera-wrap { width: 90%; max-width: 400px; border: 4px solid var(--primary); border-radius: 20px; overflow: hidden; position: relative; }
+        video { width: 100%; height: auto; transform: scaleX(-1); }
+        .cam-status { color: white; margin-top: 15px; font-weight: bold; font-size: 0.9rem; background: rgba(37,99,235,0.8); padding: 5px 15px; border-radius: 20px; }
+        .cam-btns { display: flex; gap: 10px; margin-top: 20px; width: 90%; max-width: 400px; }
+
+        .zoom-overlay { position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.9); z-index: 3000; display: none; align-items: center; justify-content: center; cursor: zoom-out; }
+        .zoom-overlay img { max-width: 90%; max-height: 90%; border-radius: 10px; border: 5px solid white; box-shadow: 0 0 20px rgba(255,255,255,0.2); }
+
+        .modal { display: none; position: fixed; z-index: 4000; left: 0; top: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.5); align-items: center; justify-content: center; }
+        .modal-content { background: white; padding: 25px; border-radius: 16px; width: 90%; max-width: 350px; text-align: center; }
+
+        /* Lock Overlay Styles */
+        .lock-screen {
+            position: fixed; top: 0; left: 0; width: 100%; height: 100%;
+            background: rgba(255, 255, 255, 0.98);
+            z-index: 9999; display: none; flex-direction: column;
+            align-items: center; justify-content: center; padding: 30px; text-align: center;
+        }
+        .lock-card {
+            background: white; padding: 40px; border-radius: 24px;
+            box-shadow: 0 20px 40px rgba(0,0,0,0.1); border: 2px solid #fee2e2;
+            max-width: 450px;
+        }
+        .lock-icon { font-size: 4rem; margin-bottom: 20px; }
+        .lock-msg { font-size: 1rem; color: #1e293b; line-height: 1.6; margin-bottom: 20px; white-space: pre-line; }
+        .lock-due { color: #ef4444; font-weight: 800; font-size: 1.1rem; }
+
+        /* New Alert Styles */
+        #fee-upcoming-alert {
+            display: none; background: #fffbeb; border: 1px solid #fef3c7; color: #92400e;
+            padding: 12px; border-radius: 12px; margin-bottom: 15px; font-size: 0.8rem;
+            font-weight: 700; text-align: center; border-left: 5px solid #f59e0b;
+        }
+    </style>
+</head>
+<body>
+
+<div id="lock-overlay" class="lock-screen">
+    <div class="lock-card">
+        <div class="lock-icon">🔒</div>
+        <div class="lock-msg" id="lock-message-text"></div>
+        <button onclick="logout()" style="background:var(--dark); width:auto; padding: 12px 30px;">Back to Login</button>
+    </div>
+</div>
+
+<div id="month-modal" class="modal">
+    <div class="modal-content">
+        <h3 style="margin-top:0;">Select Month</h3>
+        <p style="font-size:0.8rem; color:var(--grey);">Select the month for the attendance report.</p>
+        <input type="month" id="report-month-input" style="margin-bottom:15px;">
+        <button onclick="confirmDownloadReport()" style="background:var(--primary);">Download PDF</button>
+        <button onclick="closeMonthModal()" style="background:var(--grey); margin-top:8px;">Cancel</button>
+    </div>
+</div>
+
+<div id="login-sec">
+    <div class="login-card">
+        <div class="login-header">
+            <div style="width:50px; height:50px; background:var(--primary); border-radius:12px; margin: 0 auto 15px; display:flex; align-items:center; justify-content:center;">
+                <svg width="24" height="24" fill="white" viewBox="0 0 24 24"><path d="M12 2L1 7l11 5 9-4.09V17h2V7L12 2z"/><path d="M3.88 10.15L12 13.85l8.12-3.7V17l-8.12 3.7-8.12-3.7v-6.85z"/></svg>
+            </div>
+            <h1>Samarthak</h1>
+            <p id="login-type-label" style="color:var(--grey); font-size:0.9rem;">Student Dashboard</p>
+        </div>
+
+        <div id="student-form">
+            <div class="input-group">
+                <label>Registration Number</label>
+                <div class="reg-prefix-group">
+                    <span>REG</span>
+                    <input type="number" id="stuReg" oninput="hideError('err-stu-reg'); if(value.length>10) value=value.slice(0,10)" placeholder="Enter 10 digits">
+                </div>
+                <div class="error-msg" id="err-stu-reg">Please enter 10-digit registration number</div>
+            </div>
+            <div class="input-group">
+                <label>Mobile Number</label>
+                <input type="number" id="stuMobile" oninput="hideError('err-stu-mob'); if(value.length>10) value=value.slice(0,10)" placeholder="Enter registered mobile">
+                <div class="error-msg" id="err-stu-mob">10-digit mobile number is required</div>
+            </div>
+            <button onclick="handleStudentLogin()" style="margin-top: 10px; background: #4f46e5;">Access Dashboard</button>
+            <button onclick="toggleLoginType('admin')" style="background:transparent; color:var(--primary); border:none; padding:5px; font-size:0.8rem; margin-top:10px; text-decoration:underline;">Switch to Admin Dashboard</button>
+        </div>
+
+        <div id="admin-form" style="display:none;">
+            <div class="input-group">
+                <label>Admin ID</label>
+                <input type="number" id="adminId" oninput="hideError('err-login-id'); if(value.length>10) value=value.slice(0,10)" placeholder="Enter 10 digit ID">
+                <div class="error-msg" id="err-login-id">10-digit Admin ID is required</div>
+            </div>
+            <div class="input-group pass-wrapper">
+                <label>Password</label>
+                <input type="password" id="adminPass" oninput="hideError('err-login-pass')" placeholder="Enter password">
+                <span class="toggle-pass" onclick="togglePasswordVisibility('adminPass')">SHOW</span>
+                <div class="error-msg" id="err-login-pass">Password is required</div>
+            </div>
+            <button onclick="handleLogin()" style="margin-top: 10px; box-shadow: 0 4px 12px rgba(37,99,235,0.2);">Login Dashboard</button>
+            <button onclick="toggleLoginType('student')" style="background:transparent; color:var(--primary); border:none; padding:5px; font-size:0.8rem; margin-top:10px; text-decoration:underline;">Switch to Student Dashboard</button>
+        </div>
+
+        <div id="login-main-err" style="color:var(--booked); font-size:0.8rem; text-align:center; margin-top:15px; display:none; font-weight:bold;">Invalid Credentials</div>
+    </div>
+</div>
+
+<div class="container" id="main-app">
+    <div id="owner-sec" class="section active">
+        <div class="panel">
+            <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom: 20px;">
+                <h2>System Configuration</h2>
+                <button onclick="logoutAdmin()" style="width:auto; padding:8px 15px; background:var(--booked); margin:0; font-size:0.7rem;">LOGOUT</button>
+            </div>
+            <div class="grid-2-col">
+                <div class="input-group">
+                    <label>Library Name</label>
+                    <input type="text" id="libName" oninput="hideError('err-libName')" placeholder="Enter Full Library Name">
+                    <div class="error-msg" id="err-libName">Library name is required</div>
+                </div>
+                <div class="input-group">
+                    <label>Owner Mobile Number</label>
+                    <input type="tel" id="ownerMobile" oninput="hideError('err-ownerMobile')" maxlength="10" placeholder="Enter Mobile Number">
+                    <div class="error-msg" id="err-ownerMobile">Valid 10-digit mobile number is required</div>
+                </div>
+            </div>
+            
+            <div class="grid-2-col">
+                <div class="input-group">
+                    <label>Full Library Address</label>
+                    <textarea id="ownerAddress" oninput="hideError('err-ownerAddress')" rows="1" placeholder="Street, City, State"></textarea>
+                    <div class="error-msg" id="err-ownerAddress">Library address is required</div>
+                </div>
+                <div class="input-group">
+                    <label>PIN Code</label>
+                    <input type="number" id="ownerPin" oninput="hideError('err-ownerPin'); if(value.length>6) value=value.slice(0,6)" placeholder="6-digit PIN CODE">
+                    <div class="error-msg" id="err-ownerPin">Valid 6-digit PIN CODE is required</div>
+                </div>
+            </div>
+
+            <div class="grid-2-col">
+                <div class="input-group">
+                    <label>Total Seating Capacity</label>
+                    <input type="number" id="totalSeatsConfig" oninput="hideError('err-totalSeats')" placeholder="e.g. 50">
+                    <div class="error-msg" id="err-totalSeats">Please enter a valid numeric capacity</div>
+                </div>
+                <div class="input-group">
+                    <label>Merchant UPI ID</label>
+                    <input type="text" id="ownerUPI" oninput="hideError('err-ownerUPI')" placeholder="e.g. mobile@upi">
+                    <p class="info-text">All online payment amounts will be settled in this UPI ID.</p>
+                    <div class="error-msg" id="err-ownerUPI">Invalid UPI Format</div>
+                </div>
+            </div>
+
+            <div class="input-group">
+                <label>Owner Signature</label>
+                <input type="file" id="sigInput" accept="image/*" onclick="this.value=null;" onchange="hideError('err-sig'); initCrop(this, 'sig')">
+                <p class="info-text" style="color: var(--primary); font-weight: 600;">Note: For better visibility, please upload a clear photo of your signature on a white background or use a background-removed PNG image.</p>
+                <div class="error-msg" id="err-sig">Signature is required for receipts</div>
+                <div class="crop-container" id="sig-crop-box">
+                    <img id="sig-crop-image">
+                    <div class="crop-controls">
+                        <button class="apply-crop-btn" onclick="applyCrop('sig')">Crop & Save Signature</button>
+                        <button class="cancel-crop-btn" onclick="cancelCrop('sig')">Cancel</button>
+                    </div>
+                </div>
+                <img id="sig-preview-img" class="preview-img sig-preview" src="" alt="Signature Preview">
+            </div>
+
+            <hr style="border:0; border-top:1px solid #eee; margin:20px 0;">
+            <h2>Shift Management (Clock-Based)</h2>
+            <div id="shiftList"></div>
+            <div style="background: #f1f5f9; padding: 15px; border-radius: 12px; margin-top: 10px;">
+                <input type="hidden" id="editShiftId">
+                <label>Shift Label</label>
+                <input type="text" id="newShiftName" placeholder="e.g. Morning Shift" style="margin-bottom:8px">
+                <div class="grid-2-col" style="margin-bottom:8px">
+                    <div>
+                        <label>Start Time</label>
+                        <input type="time" id="newShiftStart">
+                    </div>
+                    <div>
+                        <label>End Time</label>
+                        <input type="time" id="newShiftEnd">
+                    </div>
+                </div>
+                <label>Price (INR)</label>
+                <input type="number" id="newShiftPrice" placeholder="e.g. 1500">
+                <div class="error-msg" id="err-shift-setup" style="margin-bottom:10px;">Please add at least one shift to proceed</div>
+                <button id="addShiftBtn" onclick="addNewShift()" style="background: #4f46e5; margin-top:10px;">+ Add New Shift</button>
+            </div>
+            <button onclick="saveOwnerSettings()" style="background: #10b981; margin-top: 25px; font-size: 1rem;">Complete Setup</button>
+        </div>
+    </div>
+
+    <div id="booking-sec" class="section">
+        <h3 id="displayLibName" style="text-align:center; margin-bottom: 15px; color: var(--primary);">Samarthak</h3>
+        <div class="panel">
+            <div id="student-details-step">
+                <h2 id="formTitle">Student Information</h2>
+                <input type="hidden" id="editId">
+                <div class="grid-2-col">
+                    <div class="input-group">
+                        <label>Applicant Name</label>
+                        <input type="text" id="name" oninput="hideError('err-name')" placeholder="Enter Full Name">
+                        <div class="error-msg" id="err-name">Applicant name is required</div>
+                    </div>
+                    <div class="input-group">
+                        <label>Guardian/Father's Name</label>
+                        <input type="text" id="fname" oninput="hideError('err-fname')" placeholder="Enter Full Name">
+                        <div class="error-msg" id="err-fname">Guardian information is required</div>
+                    </div>
+                </div>
+                <div class="grid-2-col">
+                    <div class="input-group">
+                        <label>Contact Number</label>
+                        <input type="tel" id="mobile" oninput="hideError('err-mobile')" maxlength="10" placeholder="Enter Contact Number">
+                        <div class="error-msg" id="err-mobile">Valid 10-digit contact number is required</div>
+                    </div>
+                    <div class="input-group">
+                        <label>Email Address</label>
+                        <input type="email" id="email" oninput="hideError('err-email')" placeholder="student@example.com">
+                        <div class="error-msg" id="err-email">Valid email format is required</div>
+                    </div>
+                </div>
+                <div class="input-group">
+                    <label>Date of Birth</label>
+                    <input type="date" id="dob" oninput="hideError('err-dob')" placeholder="dd/mm/yyyy">
+                    <div class="error-msg" id="err-dob">Date of Birth is required</div>
+                </div>
+                <div class="input-group">
+                    <label>Student Photograph</label>
+                    <button onclick="openLiveCamera('registration')" style="background: #10b981; margin-bottom:10px;">Open Camera & Capture</button>
+                    <div class="error-msg" id="err-photo">Photograph capture is required</div>
+                    <img id="photo-preview-img" class="preview-img" src="" alt="Preview">
+                </div>
+                <div class="input-group">
+                    <label>Select Shift Plan</label>
+                    <select id="shift" onchange="hideError('err-shift-select'); updateShift()">
+                        <option value="">-- Choose a Shift --</option>
+                    </select>
+                    <div class="error-msg" id="err-shift-select">Please select a shift plan</div>
+                </div>
+                <button onclick="proceedToSeats()" id="proceedBtn" style="background: var(--selected);">Proceed to Seat Selection</button>
+            </div>
+
+            <div id="seat-selection-step" style="display:none;">
+                <h2>Seat Allocation</h2>
+                <div class="price-tag" id="priceDisplay">Payable: ₹0</div>
+                <div class="input-group">
+                    <label>Payment Mode</label>
+                    <select id="payMethod" onchange="toggleQR('main')">
+                        <option value="Cash">Cash at Counter</option>
+                        <option value="Online">Online UPI Payment</option>
+                    </select>
+                </div>
+                
+                <div id="onlineDetailsArea" style="display:none; background:#f8fafc; padding:15px; border-radius:10px; border:1px solid #e2e8f0; margin-bottom:15px;">
+                    <div class="input-group">
+                        <label>Payment App</label>
+                        <select id="payApp" onchange="checkOtherApp('main')">
+                            <option value="PhonePe">PhonePe</option>
+                            <option value="Google Pay">Google Pay</option>
+                            <option value="Paytm">Paytm</option>
+                            <option value="Supermoney">Supermoney</option>
+                            <option value="Navi">Navi</option>
+                            <option value="BHIM">BHIM</option>
+                            <option value="Other">Other</option>
+                        </select>
+                    </div>
+                    <div class="input-group" id="otherAppNameArea" style="display:none;">
+                        <label>Enter App Name</label>
+                        <input type="text" id="otherAppName" oninput="hideError('err-otherApp')" placeholder="Specify App Name">
+                        <div class="error-msg" id="err-otherApp">App name is required</div>
+                    </div>
+                    <div class="input-group">
+                        <label>Transaction ID (Last 4-12 digits)</label>
+                        <input type="text" id="txnId" oninput="hideError('err-txnId')" placeholder="Enter Transaction ID">
+                        <div class="error-msg" id="err-txnId">Valid Transaction ID is required</div>
+                    </div>
+                </div>
+
+                <div id="qrArea" class="qr-section">
+                    <img id="qrImg" src="" alt="QR">
+                    <p id="displayUPI" style="font-size: 0.75rem; color: var(--primary); margin-top: 8px; font-weight: bold;"></p>
+                </div>
+                <div class="input-group">
+                    <label>Assigned Seat</label>
+                    <input type="text" id="seatDisplay" readonly inputmode="none" onfocus="this.blur()" placeholder="Pick a green seat">
+                    <div class="error-msg" id="err-seat">Please select a seat</div>
+                </div>
+                <button id="mainBtn" onclick="validateAndBook()">Self Confirm Your Registration</button>
+                <button onclick="backToDetails()" style="background:#94a3b8; margin-top: 10px;">Back to Details</button>
+            </div>
+            <button id="cancelEditBtn" onclick="resetForm()" style="display:none; background:var(--booked); margin-top:10px;">Cancel Modification</button>
+        </div>
+
+        <div class="panel" id="gridPanel" style="display:none;">
+            <h2 id="gridTitle">Real-time Availability</h2>
+            <div class="seat-grid" id="seatGrid"></div>
+        </div>
+    </div>
+
+    <div id="history-sec" class="section">
+        <div class="panel" style="background: transparent; border: none; box-shadow: none; padding: 10px 0;">
+            <div class="search-container">
+                <input type="text" id="searchInput" onkeyup="renderHistory()" placeholder="Search by Name, Reg No or Mobile...">
+                <div class="filter-tabs">
+                    <div class="filter-tab active" onclick="setHistoryFilter('all', this)">All</div>
+                    <div class="filter-tab" onclick="setHistoryFilter('paid', this)">Paid</div>
+                    <div class="filter-tab" onclick="setHistoryFilter('pending', this)">Pending</div>
+                    <div class="filter-tab" onclick="setHistoryFilter('attendance', this)">Attendance</div>
+                </div>
+            </div>
+        </div>
+        <h2 id="history-title" style="padding: 10px; font-size: 1rem;">Registered Records</h2>
+        <div id="historyBody"></div>
+
+        <div id="fee-panel" class="panel" style="display:none; margin-top:20px; border-top: 5px solid #6366f1; border-radius: 20px;">
+            <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom: 15px;">
+                <h2 style="border:none; margin:0; font-size: 1rem;">Fees Deposit Center</h2>
+                <button onclick="document.getElementById('fee-panel').style.display='none'" style="width:auto; padding:8px 15px; background:#ef4444; margin:0; font-size:0.7rem;">CLOSE</button>
+            </div>
+            <p id="fee-student-name" style="font-weight:800; color:var(--primary); margin-bottom: 15px; background:#eff6ff; padding:10px; border-radius:10px; text-align:center;"></p>
+            
+            <div style="background:#f8fafc; padding:15px; border-radius:12px; border: 1px solid #e2e8f0; margin-bottom:20px;">
+                <label style="color:var(--dark)">New Deposit Entry</label>
+                <input type="hidden" id="editFeeLogIndex">
+                <div style="display:grid; grid-template-columns: 1fr 1fr; gap:10px; margin-top:8px;">
+                    <div class="input-group">
+                        <label>Month</label>
+                        <input type="month" id="feeMonth" style="padding:10px;">
+                    </div>
+                    <div class="input-group">
+                        <label>Amount (₹)</label>
+                        <input type="number" id="feeAmount" readonly placeholder="Amount" style="padding:10px; background:#e2e8f0; cursor:not-allowed;">
+                    </div>
+                </div>
+                <div style="display:grid; grid-template-columns: 1fr; gap:10px; margin-top:8px;">
+                    <div class="input-group">
+                        <label>Payment Mode</label>
+                        <select id="feePayMode" style="padding:10px;" onchange="toggleQR('fee')">
+                            <option value="Cash">Cash</option>
+                            <option value="Online">Online</option>
+                        </select>
+                    </div>
+                </div>
+
+                <div id="feeOnlineDetails" style="display:none; margin-top:10px;">
+                    <div class="grid-2-col">
+                        <div class="input-group">
+                            <label>Payment App</label>
+                            <select id="feePayApp" onchange="checkOtherApp('fee')">
+                                <option value="PhonePe">PhonePe</option>
+                                <option value="Google Pay">Google Pay</option>
+                                <option value="Paytm">Paytm</option>
+                                <option value="Supermoney">Supermoney</option>
+                                <option value="Navi">Navi</option>
+                                <option value="BHIM">BHIM</option>
+                                <option value="Other">Other</option>
+                            </select>
+                        </div>
+                        <div class="input-group" id="feeOtherAppNameArea" style="display:none;">
+                            <label>App Name</label>
+                            <input type="text" id="feeOtherAppName" oninput="hideError('err-feeOtherApp')" placeholder="Specify App">
+                            <div class="error-msg" id="err-feeOtherApp">App name is required</div>
+                        </div>
+                    </div>
+                    <div class="input-group">
+                        <label>Transaction ID</label>
+                        <input type="text" id="feeTxnId" oninput="hideError('err-feeTxnId')" placeholder="Txn ID">
+                        <div class="error-msg" id="err-feeTxnId">Valid Transaction ID is required</div>
+                    </div>
+                    <div id="feeQrArea" class="qr-section" style="display:none;">
+                        <img id="feeQrImg" src="" alt="QR">
+                        <p id="feeDisplayUPI" style="font-size: 0.75rem; color: var(--primary); margin-top: 8px; font-weight: bold;"></p>
+                    </div>
+                </div>
+                <button id="btnFeeSubmit" onclick="saveNewMonthlyFee()" style="margin-top:10px; background:#10b981; padding:12px;">Deposit Fee</button>
+                <button id="btnFeeCancel" onclick="resetFeeForm()" style="display:none; margin-top:10px; background:var(--booked); padding:12px;">Cancel Modification</button>
+            </div>
+            
+            <div id="fee-logs-container" class="fee-history-wrapper">
+                <table class="fee-history-table">
+                    <thead>
+                        <tr>
+                            <th>Month</th>
+                            <th>Entry Date</th>
+                            <th>Amount</th>
+                            <th>Mode/App</th>
+                            <th>Txn ID</th>
+                            <th>Actions</th>
+                        </tr>
+                    </thead>
+                    <tbody id="feeLogsBody"></tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+
+    <div id="student-dash-sec" class="section">
+        <div class="panel">
+            <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom: 20px;">
+                <h2>My Student Profile</h2>
+                <button onclick="logout()" style="width:auto; padding:8px 15px; background:var(--booked); margin:0; font-size:0.7rem;">LOGOUT</button>
+            </div>
+
+            <div id="lock-warning-msg" style="display:none; background:#fff7ed; border:1px solid #ffedd5; color:#9a3412; padding:12px; border-radius:12px; margin-bottom:15px; font-size:0.8rem; font-weight:700; text-align:center;"></div>
+            
+            <div id="fee-upcoming-alert"></div>
+
+            <div id="stu-profile-content">
+                <img id="stu-display-photo" src="" style="width:80px; height:80px; border-radius:12px; object-fit:cover; border:3px solid #fff; box-shadow:0 4px 6px rgba(0,0,0,0.1);">
+                <div>
+                    <h3 id="stu-display-name" style="margin:0; color:var(--primary);"></h3>
+                    <p id="stu-display-reg" style="margin:5px 0; font-size:0.75rem; font-weightbold; color:var(--grey);"></p>
+                    <p id="stu-display-mobile" style="margin:2px 0; font-size:0.75rem;"></p>
+                    <p id="stu-display-email" style="margin:2px 0; font-size:0.75rem;"></p>
+                </div>
+            </div>
+
+            <div style="margin-top:20px; background:#f0f7ff; padding:15px; border-radius:15px; border:1px solid #cce3ff; text-align:center;">
+                <h3 style="margin:0 0 10px 0; font-size:0.9rem;">DAILY ATTENDANCE</h3>
+                <button id="btn-attendance" onclick="openLiveCamera('attendance')" style="background:#22c55e;">Mark My Attendance (Live Photo)</button>
+                <div id="attendance-status" style="margin-top:10px; font-size:0.75rem; font-weight:bold;"></div>
+            </div>
+
+            <div class="grid-2-col" style="margin-top:20px; margin-bottom:20px;">
+                <div style="background:#fff; border:1.5px solid #e2e8f0; padding:15px; border-radius:12px; text-align:center;">
+                    <label style="color:var(--grey); margin-bottom:5px;">ASSIGNED SEAT</label>
+                    <div id="stu-display-seat" style="font-size:1.5rem; font-weight:800; color:var(--dark);"></div>
+                </div>
+                <div style="background:#fff; border:1.5px solid #e2e8f0; padding:15px; border-radius:12px; text-align:center;">
+                    <label style="color:var(--grey); margin-bottom:5px;">SHIFT PLAN</label>
+                    <div id="stu-display-shift" style="font-size:1rem; font-weight:800; color:var(--dark);"></div>
+                </div>
+            </div>
+
+            <div style="background:#fff4f4; border:1px solid #fecaca; padding:15px; border-radius:12px; margin-bottom:20px; text-align:center;">
+                <label style="color:#ef4444; font-weight:bold; font-size:0.7rem;">NEXT FEE DUE DATE</label>
+                <div id="stu-display-due" style="font-size:1.2rem; font-weight:800; color:#b91c1c;"></div>
+                <p style="font-size:0.7rem; color:#64748b; margin-top:5px;">Registration Date: <span id="stu-display-regdate"></span></p>
+            </div>
+
+            <h2>Fee Payment History</h2>
+            <div class="fee-history-wrapper">
+                <table class="fee-history-table">
+                    <thead>
+                        <tr>
+                            <th>Month</th>
+                            <th>Amount</th>
+                            <th>Mode</th>
+                            <th>Txn ID</th>
+                            <th>Receipt</th>
+                        </tr>
+                    </thead>
+                    <tbody id="stu-fee-tbody"></tbody>
+                </table>
+            </div>
+
+            <div style="display:flex; justify-content:space-between; align-items:center; margin-top:20px;">
+                <h2 style="margin:0;">Attendance History</h2>
+                <button onclick="openReportModal(loggedInStudent)" style="width:auto; padding:8px 15px; background:var(--primary); margin:0; font-size:0.7rem;">Download Report</button>
+            </div>
+            <div class="fee-history-wrapper">
+                <table class="fee-history-table">
+                    <thead>
+                        <tr>
+                            <th>Date</th>
+                            <th>Time</th>
+                            <th>Status</th>
+                        </tr>
+                    </thead>
+                    <tbody id="stu-attendance-tbody"></tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+</div>
+
+<div class="bottom-nav" id="admin-bottom-nav">
+    <div class="nav-item active" onclick="switchTab('owner-sec', this)">Admin Dashboard</div>
+    <div class="nav-item" onclick="switchTab('booking-sec', this)">Student Information</div>
+    <div class="nav-item" onclick="switchTab('history-sec', this)">History</div>
+</div>
+
+<div id="cam-overlay" class="camera-overlay">
+    <div class="camera-wrap">
+        <video id="live-video" autoplay muted playsinline></video>
+    </div>
+    <div id="cam-status" class="cam-status">Initializing Human Detection...</div>
+    <div class="cam-btns">
+        <button id="capture-btn" style="background:#10b981; display:none;" onclick="captureFinalPhoto()">Capture Photo</button>
+        <button style="background:#ef4444;" onclick="closeLiveCamera()">Close Camera</button>
+    </div>
+</div>
+
+<div id="zoom-overlay" class="zoom-overlay" onclick="this.style.display='none'">
+    <img id="zoomed-img" src="" alt="Zoomed Photo">
+</div>
+
+<script>
+    const accounts = [ ["1020304050", "Admin@786"], ["9876543210", "Login@Secure"] ];
+    let config = { libName: "", totalSeats: 0, upi: "", mobile: "", address: "", pin: "", shifts: [], signature: null };
+    let db = {}; let students = []; let selectedSeat = null; let photoData = null; let sigData = null;
+    let cropper = null;
+    let currentFeeStudentId = null;
+    let loggedInStudent = null;
+    let historyFilter = 'all';
+
+    let attendances = []; 
+    let currentCamTask = ""; 
+    let isModelsLoaded = false;
+    let currentReportStudent = null;
+    
+    // Admin Login Security Variables
+    let loginAttempts = {};
+
+    function saveToLocal() {
+        const payload = { config, db, students, attendances, loginAttempts };
+        localStorage.setItem('Samarthak_DB', JSON.stringify(payload));
+    }
+
+    function loadFromLocal() {
+        const raw = localStorage.getItem('Samarthak_DB');
+        if (raw) {
+            const data = JSON.parse(raw);
+            config = data.config || config;
+            db = data.db || db;
+            students = data.students || students;
+            attendances = data.attendances || [];
+            loginAttempts = data.loginAttempts || {};
+            
+            if(config.libName) {
+                document.getElementById('displayLibName').innerText = config.libName;
+                document.getElementById('displayUPI').innerText = "Pay to: " + config.upi;
+                document.getElementById('feeDisplayUPI').innerText = "Pay to: " + config.upi;
+                document.getElementById('libName').value = config.libName;
+                document.getElementById('totalSeatsConfig').value = config.totalSeats;
+                document.getElementById('ownerUPI').value = config.upi;
+                document.getElementById('ownerMobile').value = config.mobile;
+                document.getElementById('ownerAddress').value = config.address;
+                document.getElementById('ownerPin').value = config.pin;
+                if(config.signature) {
+                    sigData = config.signature;
+                    const prev = document.getElementById('sig-preview-img');
+                    prev.src = sigData; prev.style.display = 'block';
+                }
+                const dropdown = document.getElementById('shift');
+                dropdown.innerHTML = '<option value="">-- Choose a Shift --</option>';
+                config.shifts.forEach(s => {
+                    const timeRange = s.start && s.end ? ` (${s.start}-${s.end})` : "";
+                    dropdown.add(new Option(`${s.name}${timeRange} (₹${s.price})`, s.id));
+                });
+                renderShiftList();
+                renderAdminAttendance();
+            }
+        }
+    }
+
+    async function loadModels() {
+        if (isModelsLoaded) return;
+        const MODEL_URL = 'https://cdn.jsdelivr.net/npm/@vladmandic/face-api/model';
+        await faceapi.nets.tinyFaceDetector.loadFromUri(MODEL_URL);
+        isModelsLoaded = true;
+    }
+
+    async function openLiveCamera(task) {
+        currentCamTask = task;
+        document.getElementById('cam-overlay').style.display = 'flex';
+        document.getElementById('capture-btn').style.display = 'none';
+        document.getElementById('cam-status').innerText = "Loading AI Models...";
+
+        await loadModels();
+        
+        const video = document.getElementById('live-video');
+        try {
+            const stream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: "user" } });
+            video.srcObject = stream;
+            detectHuman();
+        } catch (e) {
+            alert("Camera access denied or not available.");
+            closeLiveCamera();
+        }
+    }
+
+    async function detectHuman() {
+        const video = document.getElementById('live-video');
+        const status = document.getElementById('cam-status');
+        const btn = document.getElementById('capture-btn');
+
+        const interval = setInterval(async () => {
+            if (!video.srcObject) { clearInterval(interval); return; }
+            
+            const detections = await faceapi.detectSingleFace(video, new faceapi.TinyFaceDetectorOptions());
+            if (detections) {
+                status.innerText = "Real Human Detected! Ready to capture.";
+                status.style.background = "#22c55e";
+                btn.style.display = "block";
+            } else {
+                status.innerText = "Scanning... Position your face clearly.";
+                status.style.background = "rgba(37,99,235,0.8)";
+                btn.style.display = "none";
+            }
+        }, 1000);
+    }
+
+    function captureFinalPhoto() {
+        const video = document.getElementById('live-video');
+        const canvas = document.createElement('canvas');
+        canvas.width = video.videoWidth;
+        canvas.height = video.videoHeight;
+        const ctx = canvas.getContext('2d');
+        ctx.translate(canvas.width, 0);
+        ctx.scale(-1, 1);
+        ctx.drawImage(video, 0, 0);
+        const data = canvas.toDataURL('image/jpeg', 0.7);
+
+        if (currentCamTask === 'registration') {
+            photoData = data;
+            const prev = document.getElementById('photo-preview-img');
+            prev.src = data; prev.style.display = 'block';
+            hideError('err-photo');
+        } else if (currentCamTask === 'attendance') {
+            saveAttendance(data);
+        }
+        closeLiveCamera();
+    }
+
+    function saveAttendance(img) {
+        const todayStr = new Date().toISOString().split('T')[0];
+        const alreadyDone = attendances.find(a => a.regNo === loggedInStudent.regNo && a.date.startsWith(todayStr));
+        
+        if (alreadyDone) {
+            alert("Attendance already marked for today!");
+        } else {
+            const log = {
+                regNo: loggedInStudent.regNo,
+                name: loggedInStudent.name,
+                date: new Date().toISOString(),
+                photo: img
+            };
+            attendances.push(log);
+            saveToLocal();
+            renderStudentDashboard();
+            alert("Attendance Marked Successfully!");
+        }
+    }
+
+    function closeLiveCamera() {
+        const video = document.getElementById('live-video');
+        if (video.srcObject) {
+            video.srcObject.getTracks().forEach(track => track.stop());
+            video.srcObject = null;
+        }
+        document.getElementById('cam-overlay').style.display = 'none';
+    }
+
+    window.onload = loadFromLocal;
+
+    function hideError(id) { document.getElementById(id).style.display = 'none'; }
+
+    function setHistoryFilter(type, el) {
+        historyFilter = type;
+        document.querySelectorAll('.filter-tab').forEach(t => t.classList.remove('active'));
+        el.classList.add('active');
+        
+        const title = document.getElementById('history-title');
+        if(type === 'attendance') {
+            title.innerText = "Daily Student Attendance Records";
+        } else {
+            title.innerText = "Registered Records";
+        }
+        
+        renderHistory();
+    }
+
+    function toggleLoginType(type) {
+        document.getElementById('login-main-err').style.display = 'none';
+        document.getElementById('login-main-err').innerText = 'Invalid Credentials'; // Reset Text
+        if(type === 'student') {
+            document.getElementById('admin-form').style.display = 'none';
+            document.getElementById('student-form').style.display = 'block';
+            document.getElementById('login-type-label').innerText = "Student Dashboard";
+        } else {
+            document.getElementById('admin-form').style.display = 'block';
+            document.getElementById('student-form').style.display = 'none';
+            document.getElementById('login-type-label').innerText = "Admin Dashboard";
+        }
+    }
+
+    function formatAppDate(dateStr) {
+        if(!dateStr) return "";
+        const d = new Date(dateStr);
+        const day = String(d.getDate()).padStart(2, '0');
+        const month = String(d.getMonth() + 1).padStart(2, '0');
+        const year = d.getFullYear();
+        return `${day}/${month}/${year}`;
+    }
+
+    function formatAppTime(dateStr) {
+        if(!dateStr) return "";
+        const d = new Date(dateStr);
+        return d.toLocaleTimeString('en-IN', { hour: '2-digit', minute: '2-digit' });
+    }
+
+    function getFullMonthName(monthYearStr) {
+        if(!monthYearStr) return "";
+        const [year, month] = monthYearStr.split('-');
+        const date = new Date(year, month - 1);
+        return date.toLocaleString('en-IN', { month: 'long', year: 'numeric' });
+    }
+
+    function togglePasswordVisibility(id) {
+        const input = document.getElementById(id);
+        const toggle = input.nextElementSibling;
+        input.type = input.type === "password" ? "text" : "password";
+        toggle.innerText = input.type === "password" ? "SHOW" : "HIDE";
+    }
+
+    function handleLogin() {
+        const id = document.getElementById('adminId').value;
+        const pass = document.getElementById('adminPass').value;
+        const errDiv = document.getElementById('login-main-err');
+        document.querySelectorAll('.error-msg').forEach(e => e.style.display = 'none');
+        
+        if(id.length !== 10) return document.getElementById('err-login-id').style.display = 'block';
+        if(!pass) return document.getElementById('err-login-pass').style.display = 'block';
+
+        // Check if Admin ID is currently locked
+        if(loginAttempts[id] && loginAttempts[id].lockUntil) {
+            const now = Date.now();
+            if(now < loginAttempts[id].lockUntil) {
+                const timeLeft = Math.ceil((loginAttempts[id].lockUntil - now) / (1000 * 60 * 60));
+                errDiv.style.display = 'block';
+                errDiv.innerText = `ID Blocked! Too many failed attempts. Try again after ${timeLeft} hours.`;
+                return;
+            } else {
+                delete loginAttempts[id];
+            }
+        }
+
+        const validAdmin = accounts.find(acc => acc[0] === id);
+        
+        if(validAdmin && validAdmin[1] === pass) {
+            if(loginAttempts[id]) delete loginAttempts[id];
+            saveToLocal();
+            
+            document.getElementById('login-sec').style.display = 'none';
+            document.getElementById('main-app').style.display = 'block';
+            document.getElementById('admin-bottom-nav').style.display = 'flex';
+            switchTab('owner-sec', document.querySelector('.nav-item'));
+            renderAdminAttendance();
+        } else {
+            errDiv.style.display = 'block';
+            errDiv.innerText = "Invalid Credentials";
+            
+            if(validAdmin) {
+                if(!loginAttempts[id]) loginAttempts[id] = { count: 0 };
+                loginAttempts[id].count++;
+                
+                if(loginAttempts[id].count >= 3) {
+                    loginAttempts[id].lockUntil = Date.now() + (24 * 60 * 60 * 1000); // 24 Hours Lock
+                    errDiv.innerText = "Account Locked for 24 hours due to 3 failed attempts!";
+                }
+            }
+            saveToLocal();
+        }
+    }
+
+    function handleStudentLogin() {
+        const regSuffix = document.getElementById('stuReg').value;
+        const mobile = document.getElementById('stuMobile').value;
+        const fullReg = "REG" + regSuffix;
+        const errDiv = document.getElementById('login-main-err');
+
+        if(regSuffix.length !== 10) { document.getElementById('err-stu-reg').style.display = 'block'; return; }
+        if(mobile.length !== 10) { document.getElementById('err-stu-mob').style.display = 'block'; return; }
+
+        const found = students.find(s => s.regNo === fullReg && s.mobile === mobile);
+        if(found) {
+            loggedInStudent = found;
+            
+            const now = new Date();
+            let dueDate = new Date(found.date);
+            if(found.feeHistory && found.feeHistory.length > 0) {
+                const lastFee = [...found.feeHistory].sort((a,b) => new Date(b.month) - new Date(a.month))[0];
+                dueDate = new Date(lastFee.month + "-01");
+                dueDate.setMonth(dueDate.getMonth() + 1);
+                dueDate.setDate(new Date(found.date).getDate());
+            } else {
+                dueDate.setDate(dueDate.getDate() + 30);
+            }
+            
+            const diffTime = now - dueDate;
+            const diffDays = Math.floor(diffTime / (1000 * 60 * 60 * 24));
+
+            if (diffDays >= 5) {
+                document.getElementById('lock-overlay').style.display = 'flex';
+                document.getElementById('lock-message-text').innerHTML = `Dear Student,
+
+                Your student dashboard has been locked because your fees have not been submitted. Kindly clear your pending dues at the earliest to regain access.
+
+                <span class="lock-due">Your Due Date was: ${formatAppDate(dueDate)}</span>
+
+                Thank you.`;
+                return;
+            }
+
+            document.getElementById('login-sec').style.display = 'none';
+            document.getElementById('main-app').style.display = 'block';
+            document.getElementById('admin-bottom-nav').style.display = 'none';
+            renderStudentDashboard();
+            switchTab('student-dash-sec');
+        } else {
+            errDiv.style.display = 'block';
+            errDiv.innerText = "Invalid Credentials";
+        }
+    }
+
+    function renderStudentDashboard() {
+        const s = loggedInStudent;
+        document.getElementById('stu-display-photo').src = s.photo || '';
+        document.getElementById('stu-display-name').innerText = s.name;
+        document.getElementById('stu-display-reg').innerText = "REGISTRATION: " + s.regNo;
+        document.getElementById('stu-display-mobile').innerText = "Mobile: " + s.mobile;
+        document.getElementById('stu-display-email').innerText = "Email: " + s.email;
+        document.getElementById('stu-display-seat').innerText = "No. " + s.seat;
+        document.getElementById('stu-display-shift').innerText = s.shiftName;
+        document.getElementById('stu-display-regdate').innerText = formatAppDate(s.date);
+
+        const todayStr = new Date().toISOString().split('T')[0];
+        const done = attendances.find(a => a.regNo === s.regNo && a.date.startsWith(todayStr));
+        const btnAtt = document.getElementById('btn-attendance');
+        const statusAtt = document.getElementById('attendance-status');
+
+        let dueDate = new Date(s.date);
+        if(s.feeHistory && s.feeHistory.length > 0) {
+            const lastFee = [...s.feeHistory].sort((a,b) => new Date(b.month) - new Date(a.month))[0];
+            dueDate = new Date(lastFee.month + "-01");
+            dueDate.setMonth(dueDate.getMonth() + 1);
+            dueDate.setDate(new Date(s.date).getDate());
+        } else {
+            dueDate.setDate(dueDate.getDate() + 30);
+        }
+        document.getElementById('stu-display-due').innerText = formatAppDate(dueDate);
+
+        const now = new Date();
+        const upcomingAlert = document.getElementById('fee-upcoming-alert');
+        const diffTimeUpcoming = dueDate - now;
+        const diffDaysUpcoming = Math.ceil(diffTimeUpcoming / (1000 * 60 * 60 * 24));
+
+        if (diffDaysUpcoming <= 5 && diffDaysUpcoming > 0) {
+            upcomingAlert.style.display = "block";
+            upcomingAlert.innerText = `🔔 Alert: Aapki fee due hone wali hai! Please ${diffDaysUpcoming} din ke andar fees jama karein (Due Date: ${formatAppDate(dueDate)}).`;
+        } else {
+            upcomingAlert.style.display = "none";
+        }
+
+        const warnArea = document.getElementById('lock-warning-msg');
+        if (now > dueDate) {
+            const diffTime = now - dueDate;
+            const diffDays = Math.floor(diffTime / (1000 * 60 * 60 * 24));
+            const daysLeft = 5 - diffDays;
+            if (daysLeft > 0) {
+                warnArea.style.display = "block";
+                warnArea.innerText = `Warning: Your fee is overdue. You have ${daysLeft} days left to pay before your account gets locked!`;
+            } else {
+                warnArea.style.display = "none";
+            }
+        } else {
+            warnArea.style.display = "none";
+        }
+
+        const currentTimeStr = now.getHours().toString().padStart(2, '0') + ":" + now.getMinutes().toString().padStart(2, '0');
+        const currentShiftObj = config.shifts.find(sh => sh.id === s.shift);
+        let isShiftOver = false;
+        if(currentShiftObj && currentShiftObj.end) isShiftOver = currentTimeStr > currentShiftObj.end;
+
+        const isFeePending = now > dueDate;
+
+        if(isFeePending) {
+            btnAtt.disabled = true; btnAtt.style.background = "#94a3b8"; btnAtt.innerText = "Fees Due - Attendance Locked";
+            statusAtt.innerHTML = `<span style="color:#ef4444">⚠ Please pay your fees to mark attendance.</span>`;
+        } else if(done) {
+            btnAtt.disabled = true; btnAtt.style.background = "#94a3b8"; btnAtt.innerText = "Today's Attendance Marked";
+            statusAtt.innerHTML = `<span style="color:#22c55e">✓ Done at ${formatAppTime(done.date)}</span>`;
+        } else if (isShiftOver) {
+            btnAtt.disabled = true; btnAtt.style.background = "#ef4444"; btnAtt.innerText = "Shift Ended - Attendance Closed";
+            statusAtt.innerHTML = `<span style="color:#ef4444">⚠ ABSENT (Shift Over)</span>`;
+        } else {
+            btnAtt.disabled = false; btnAtt.style.background = "#22c55e"; btnAtt.innerText = "Mark My Attendance (Live Photo)";
+            statusAtt.innerHTML = "";
+        }
+
+        const tbody = document.getElementById('stu-fee-tbody');
+        tbody.innerHTML = '';
+        if(s.feeHistory) {
+            s.feeHistory.forEach((f, idx) => {
+                const tr = document.createElement('tr');
+                tr.innerHTML = `<td>${getFullMonthName(f.month)}</td><td>₹${f.amount}</td><td>${f.mode}</td><td>${f.txnId}</td>
+                                <td><button class="btn-dl-h" onclick="downloadSpecificMonthStudent(${idx})">PDF</button></td>`;
+                tbody.appendChild(tr);
+            });
+        }
+
+        const attBody = document.getElementById('stu-attendance-tbody');
+        attBody.innerHTML = '';
+        const myAtts = attendances.filter(a => a.regNo === s.regNo).reverse();
+        myAtts.forEach(a => {
+            const tr = document.createElement('tr');
+            tr.innerHTML = `<td>${formatAppDate(a.date)}</td><td>${formatAppTime(a.date)}</td><td><span style="color:#22c55e; font-weight:bold;">PRESENT</span></td>`;
+            attBody.appendChild(tr);
+        });
+        if(!done && isShiftOver) {
+            const tr = document.createElement('tr');
+            tr.innerHTML = `<td>${formatAppDate(now)}</td><td>--:--</td><td><span style="color:#ef4444; font-weight:bold;">ABSENT</span></td>`;
+            attBody.prepend(tr);
+        }
+    }
+
+    function openReportModal(student) {
+        currentReportStudent = student;
+        document.getElementById('report-month-input').value = new Date().toISOString().slice(0, 7);
+        document.getElementById('month-modal').style.display = 'flex';
+    }
+
+    function closeMonthModal() {
+        document.getElementById('month-modal').style.display = 'none';
+        currentReportStudent = null;
+    }
+
+    function confirmDownloadReport() {
+        const selectedMonth = document.getElementById('report-month-input').value;
+        if(!selectedMonth) return alert("Please select a month!");
+        downloadAttendanceReport(currentReportStudent, selectedMonth);
+        closeMonthModal();
+    }
+
+    function downloadAttendanceReport(student, monthYear) {
+        if(!student || !monthYear) return;
+        const { jsPDF } = window.jspdf;
+        const doc = new jsPDF();
+        
+        doc.setFontSize(20);
+        doc.text("Attendance Report", 105, 20, { align: "center" });
+        doc.setFontSize(12);
+        doc.text(`Library: ${config.libName}`, 105, 28, { align: "center" });
+        doc.text(`Month: ${getFullMonthName(monthYear)}`, 105, 34, { align: "center" });
+        doc.text(`Name: ${student.name} | Reg: ${student.regNo}`, 20, 45);
+        
+        const [year, month] = monthYear.split('-').map(Number);
+        const lastDay = new Date(year, month, 0).getDate();
+        const today = new Date();
+        const currentYear = today.getFullYear();
+        const currentMonth = today.getMonth() + 1;
+        const currentDay = today.getDate();
+
+        const regDate = new Date(student.date);
+        regDate.setHours(0, 0, 0, 0);
+
+        let rows = [];
+        for (let day = 1; day <= lastDay; day++) {
+            const currentDateObj = new Date(year, month - 1, day);
+            const dateStr = `${year}-${String(month).padStart(2, '0')}-${String(day).padStart(2, '0')}`;
+            const displayDate = `${String(day).padStart(2, '0')}/${String(month).padStart(2, '0')}/${year}`;
+            
+            if (currentDateObj < regDate) continue;
+
+            if (year > currentYear || 
+               (year === currentYear && month > currentMonth) || 
+               (year === currentYear && month === currentMonth && day > currentDay)) {
+                continue; 
+            }
+
+            const record = attendances.find(a => a.regNo === student.regNo && a.date.startsWith(dateStr));
+            if (record) {
+                rows.push([displayDate, formatAppTime(record.date), "PRESENT"]);
+            } else {
+                const shiftObj = config.shifts.find(s => s.id === student.shift);
+                const nowTime = today.getHours().toString().padStart(2, '0') + ":" + today.getMinutes().toString().padStart(2, '0');
+                
+                if(year === currentYear && month === currentMonth && day === currentDay) {
+                   if(shiftObj && shiftObj.end && nowTime <= shiftObj.end) continue;
+                }
+                
+                rows.push([displayDate, "--:--", "ABSENT"]);
+            }
+        }
+        
+        if (rows.length === 0) {
+            doc.setFontSize(10);
+            doc.setTextColor(150);
+            doc.text("No records found after registration for this period.", 105, 60, { align: "center" });
+        } else {
+            doc.autoTable({
+                startY: 50,
+                head: [['Date', 'Time', 'Status']],
+                body: rows.reverse(),
+                headStyles: { fillColor: [37, 99, 235] },
+                didParseCell: function(data) {
+                    if (data.section === 'body' && data.column.index === 2) {
+                        if (data.cell.raw === 'ABSENT') {
+                            data.cell.styles.textColor = [239, 68, 68];
+                            data.cell.styles.fontStyle = 'bold';
+                        } else {
+                            data.cell.styles.textColor = [34, 197, 94];
+                        }
+                    }
+                }
+            });
+        }
+        
+        doc.save(`${student.name}_Attendance_${monthYear}.pdf`);
+    }
+
+    function renderAdminAttendance() {
+        const historyBody = document.getElementById('historyBody');
+        if(historyFilter !== 'attendance') return;
+        
+        historyBody.innerHTML = `
+            <div class="fee-history-wrapper">
+                <table class="fee-history-table">
+                    <thead>
+                        <tr>
+                            <th>Student</th>
+                            <th>Reg No</th>
+                            <th>Date & Time</th>
+                            <th>Photo</th>
+                            <th>Report</th>
+                        </tr>
+                    </thead>
+                    <tbody id="admin-attendance-tbody-inner"></tbody>
+                </table>
+            </div>
+        `;
+        
+        const tbody = document.getElementById('admin-attendance-tbody-inner');
+        const todayStr = new Date().toISOString().split('T')[0];
+        const now = new Date();
+        const currentTimeStr = now.getHours().toString().padStart(2, '0') + ":" + now.getMinutes().toString().padStart(2, '0');
+
+        attendances.slice().reverse().forEach(a => {
+            const stu = students.find(s => s.regNo === a.regNo);
+            const tr = document.createElement('tr');
+            tr.innerHTML = `<td>${a.name}</td><td>${a.regNo}</td><td>${formatAppDate(a.date)} ${formatAppTime(a.date)}</td>
+            <td><img src="${a.photo}" onclick="zoomPhoto('${a.photo}')" style="width:40px; height:40px; border-radius:5px; object-fit:cover; cursor:zoom-in;"></td>
+            <td><button class="btn-dl-h" onclick='openReportModal(${JSON.stringify(stu)})'>PDF</button></td>`;
+            tbody.appendChild(tr);
+        });
+
+        students.forEach(s => {
+            const done = attendances.find(a => a.regNo === s.regNo && a.date.startsWith(todayStr));
+            const currentShiftObj = config.shifts.find(sh => sh.id === s.shift);
+            if(!done && currentShiftObj && currentShiftObj.end && currentTimeStr > currentShiftObj.end) {
+                const tr = document.createElement('tr');
+                tr.style.background = "#fff1f1";
+                tr.innerHTML = `<td>${s.name}</td><td>${s.regNo}</td><td>${formatAppDate(now)} <span style="color:#ef4444; font-weight:bold;">(ABSENT)</span></td>
+                <td style="color:#ef4444; font-size:0.7rem; font-weight:bold;">SHIFT EXPIRED</td>
+                <td><button class="btn-dl-h" onclick='openReportModal(${JSON.stringify(s)})'>PDF</button></td>`;
+                tbody.appendChild(tr);
+            }
+        });
+    }
+
+    function zoomPhoto(src) {
+        const overlay = document.getElementById('zoom-overlay');
+        const img = document.getElementById('zoomed-img');
+        img.src = src;
+        overlay.style.display = 'flex';
+    }
+
+    function downloadSpecificMonthStudent(idx) { generatePDF(loggedInStudent, idx); }
+
+    function logout() {
+        loggedInStudent = null;
+        document.getElementById('lock-overlay').style.display = 'none';
+        document.getElementById('main-app').style.display = 'none';
+        document.getElementById('login-sec').style.display = 'flex';
+        document.getElementById('stuReg').value = '';
+        document.getElementById('stuMobile').value = '';
+        document.getElementById('admin-bottom-nav').style.display = 'none';
+        toggleLoginType('student');
+    }
+
+    function logoutAdmin() {
+        document.getElementById('main-app').style.display = 'none';
+        document.getElementById('login-sec').style.display = 'flex';
+        document.getElementById('adminId').value = '';
+        document.getElementById('adminPass').value = '';
+        document.getElementById('admin-bottom-nav').style.display = 'none';
+        toggleLoginType('student');
+    }
+
+    function initCrop(input, type) {
+        if (input.files && input.files[0]) {
+            const reader = new FileReader();
+            reader.onload = function(e) {
+                if (cropper) cropper.destroy();
+                const box = document.getElementById(`${type}-crop-box`);
+                const img = document.getElementById(`${type}-crop-image`);
+                img.src = e.target.result;
+                box.style.display = 'flex';
+                document.getElementById(`${type}-preview-img`).style.display = 'none';
+                const ratio = (type === 'sig') ? 5/2 : 1;
+                cropper = new Cropper(img, { aspectRatio: ratio, viewMode: 1 });
+            }
+            reader.readAsDataURL(input.files[0]);
+        }
+    }
+
+    function applyCrop(type) {
+        if (!cropper) return;
+        const canvas = (type === 'photo') ? cropper.getCroppedCanvas({width:300,height:300}) : cropper.getCroppedCanvas({width:750,height:300});
+        
+        let finalData = canvas.toDataURL();
+
+        if(type === 'photo') photoData = finalData; else sigData = finalData;
+        const prev = document.getElementById(`${type}-preview-img`);
+        prev.src = finalData; prev.style.display = 'block';
+        document.getElementById(`${type}-crop-box`).style.display = 'none';
+        cropper.destroy(); cropper = null;
+    }
+
+    function cancelCrop(type) {
+        if (cropper) cropper.destroy();
+        cropper = null;
+        document.getElementById(`${type}-crop-box`).style.display = 'none';
+        document.getElementById(`${type}Input`).value = '';
+        document.getElementById(`${type}-preview-img`).style.display = 'none';
+        if (type === 'photo') photoData = null; else sigData = null;
+    }
+
+    function renderShiftList() {
+        const list = document.getElementById('shiftList');
+        list.innerHTML = config.shifts.length ? '' : '<p style="font-size:0.8rem; color:#94a3b8">Add shift plans to start.</p>';
+        config.shifts.forEach((s, idx) => {
+            const div = document.createElement('div');
+            div.className = 'shift-item';
+            div.innerHTML = `<div><strong>${s.name}</strong><br><small>${s.start} - ${s.end} | ₹${s.price}</small></div>
+                             <div class="shift-controls">
+                                <button class="btn-edit-s" onclick="editShift('${s.id}')">Edit</button>
+                                <button class="btn-del-s" onclick="removeShift(${idx})">Remove</button>
+                             </div>`;
+            list.appendChild(div);
+        });
+    }
+
+    function editShift(sid) {
+        const s = config.shifts.find(x => x.id === sid);
+        if(s) {
+            document.getElementById('editShiftId').value = s.id;
+            document.getElementById('newShiftName').value = s.name;
+            document.getElementById('newShiftStart').value = s.start;
+            document.getElementById('newShiftEnd').value = s.end;
+            document.getElementById('newShiftPrice').value = s.price;
+            document.getElementById('addShiftBtn').innerText = "Update Shift";
+        }
+    }
+
+    function addNewShift() {
+        const name = document.getElementById('newShiftName').value.trim();
+        const start = document.getElementById('newShiftStart').value;
+        const end = document.getElementById('newShiftEnd').value;
+        const price = document.getElementById('newShiftPrice').value;
+        const editId = document.getElementById('editShiftId').value;
+        if(!name || !price || !start || !end) return alert("Shift details missing!");
+        if(editId) {
+            const idx = config.shifts.findIndex(x => x.id === editId);
+            config.shifts[idx] = { ...config.shifts[idx], name, start, end, price: parseInt(price) };
+            document.getElementById('editShiftId').value = '';
+            document.getElementById('addShiftBtn').innerText = "Update Shift";
+        } else {
+            const newId = 's' + Date.now();
+            config.shifts.push({ id: newId, name, start, end, price: parseInt(price) });
+            db[newId] = [];
+        }
+        document.getElementById('newShiftName').value = ''; 
+        document.getElementById('newShiftStart').value = '';
+        document.getElementById('newShiftEnd').value = '';
+        document.getElementById('newShiftPrice').value = '';
+        document.getElementById('err-shift-setup').style.display = 'none';
+        renderShiftList();
+        saveToLocal();
+    }
+
+    function removeShift(idx) { config.shifts.splice(idx, 1); renderShiftList(); saveToLocal(); }
+
+    function saveOwnerSettings() {
+        document.querySelectorAll('.error-msg').forEach(e => e.style.display = 'none');
+        const name = document.getElementById('libName').value.trim();
+        const seats = document.getElementById('totalSeatsConfig').value;
+        const upi = document.getElementById('ownerUPI').value.trim();
+        const mobile = document.getElementById('ownerMobile').value.trim();
+        const addr = document.getElementById('ownerAddress').value.trim();
+        const pin = document.getElementById('ownerPin').value.trim();
+        let err = false;
+        if(!name) { document.getElementById('err-libName').style.display='block'; err=true; }
+        if(!/^\d{10}$/.test(mobile)) { document.getElementById('err-ownerMobile').style.display='block'; err=true; }
+        if(!seats || seats <= 0) { document.getElementById('err-totalSeats').style.display='block'; err=true; }
+        if(!/^[\w.-]+@[\w.-]+$/.test(upi)) { document.getElementById('err-ownerUPI').style.display='block'; err=true; }
+        if(!addr) { document.getElementById('err-ownerAddress').style.display='block'; err=true; }
+        if(!/^\d{6}$/.test(pin)) { document.getElementById('err-ownerPin').style.display='block'; err=true; }
+        if(!sigData) { document.getElementById('err-sig').style.display='block'; err=true; }
+        if(config.shifts.length === 0) { document.getElementById('err-shift-setup').style.display='block'; err=true; }
+        if(err) return;
+        config = {...config, libName: name, totalSeats: parseInt(seats), upi, mobile, address: addr, pin: pin, signature: sigData};
+        document.getElementById('displayLibName').innerText = config.libName;
+        document.getElementById('displayUPI').innerText = "Pay to: " + config.upi;
+        document.getElementById('feeDisplayUPI').innerText = "Pay to: " + config.upi;
+        const dropdown = document.getElementById('shift');
+        dropdown.innerHTML = '<option value="">-- Choose a Shift --</option>';
+        config.shifts.forEach(s => { 
+            if(!db[s.id]) db[s.id] = []; 
+            const timeRange = s.start && s.end ? ` (${s.start}-${s.end})` : "";
+            dropdown.add(new Option(`${s.name}${timeRange} (₹${s.price})`, s.id)); 
+        });
+        saveToLocal();
+        alert("System Configured Successfully!");
+        switchTab('booking-sec', document.querySelectorAll('.nav-item')[1]);
+    }
+
+    function proceedToSeats() {
+        document.querySelectorAll('.error-msg').forEach(e => e.style.display = 'none');
+        let err = false;
+        if(!document.getElementById('name').value.trim()) { document.getElementById('err-name').style.display='block'; err=true; }
+        if(!document.getElementById('fname').value.trim()) { document.getElementById('err-fname').style.display='block'; err=true; }
+        if(!/^\d{10}$/.test(document.getElementById('mobile').value)) { document.getElementById('err-mobile').style.display='block'; err=true; }
+        if(!/^\S+@\S+\.\S+$/.test(document.getElementById('email').value)) { document.getElementById('err-email').style.display='block'; err=true; }
+        if(!document.getElementById('dob').value) { document.getElementById('err-dob').style.display='block'; err=true; }
+        if(!photoData) { document.getElementById('err-photo').style.display='block'; err=true; }
+        if(!document.getElementById('shift').value) { document.getElementById('err-shift-select').style.display='block'; err=true; }
+        if(err) return;
+        document.getElementById('student-details-step').style.display = 'none';
+        document.getElementById('seat-selection-step').style.display = 'block';
+        document.getElementById('gridPanel').style.display = 'block';
+        initGrid();
+    }
+
+    function backToDetails() {
+        document.getElementById('student-details-step').style.display = 'block';
+        document.getElementById('seat-selection-step').style.display = 'none';
+        document.getElementById('gridPanel').style.display = 'none';
+    }
+
+    function initGrid() {
+        const grid = document.getElementById('seatGrid'); grid.innerHTML = '';
+        const sid = document.getElementById('shift').value;
+        const editId = document.getElementById('editId').value;
+        if(!sid) return;
+        const selectedShiftObj = config.shifts.find(x => x.id === sid);
+        for (let i = 1; i <= config.totalSeats; i++) {
+            const seat = document.createElement('div'); seat.className = 'seat';
+            let booked = students.some(s => {
+                if(s.id === editId) return false;
+                if(s.seat !== i) return false;
+                const otherShift = config.shifts.find(sh => sh.id === s.shift);
+                if(!otherShift) return false;
+                return (selectedShiftObj.start < otherShift.end && selectedShiftObj.end > otherShift.start);
+            });
+            if (booked) { seat.classList.add('booked'); seat.innerText = 'X'; } 
+            else { 
+                seat.innerText = i; 
+                seat.onclick = () => {
+                    document.querySelectorAll('.seat').forEach(s => s.classList.remove('selected'));
+                    seat.classList.add('selected'); selectedSeat = i;
+                    document.getElementById('seatDisplay').value = "Seat No: " + i;
+                    document.getElementById('err-seat').style.display = 'none';
+                };
+            }
+            if(selectedSeat === i) seat.classList.add('selected');
+            grid.appendChild(seat);
+        }
+    }
+
+    function checkOtherApp(type) {
+        if(type === 'main') {
+            const val = document.getElementById('payApp').value;
+            document.getElementById('otherAppNameArea').style.display = (val === 'Other') ? 'block' : 'none';
+        } else {
+            const val = document.getElementById('feePayApp').value;
+            document.getElementById('feeOtherAppNameArea').style.display = (val === 'Other') ? 'block' : 'none';
+        }
+    }
+
+    function toggleQR(type) {
+        if(type === 'main') {
+            const method = document.getElementById('payMethod').value;
+            const qrArea = document.getElementById('qrArea');
+            const onlineArea = document.getElementById('onlineDetailsArea');
+            const sid = document.getElementById('shift').value;
+            if (method === "Online") {
+                onlineArea.style.display = 'block';
+                if(config.upi && sid) {
+                    const s = config.shifts.find(x => x.id === sid);
+                    const link = `upi://pay?pa=${config.upi}&pn=${config.libName}&am=${s.price}&cu=INR`;
+                    document.getElementById('qrImg').src = `https://api.qrserver.com/v1/create-qr-code/?size=150x150&data=${encodeURIComponent(link)}`;
+                    qrArea.style.display = 'block';
+                }
+            } else { qrArea.style.display = 'none'; onlineArea.style.display = 'none'; }
+        } else {
+            const method = document.getElementById('feePayMode').value;
+            const onlineArea = document.getElementById('feeOnlineDetails');
+            const qrArea = document.getElementById('feeQrArea');
+            const amount = document.getElementById('feeAmount').value;
+            if (method === "Online") {
+                onlineArea.style.display = 'block';
+                if(config.upi && amount > 0) {
+                    const link = `upi://pay?pa=${config.upi}&pn=${config.libName}&am=${amount}&cu=INR`;
+                    document.getElementById('feeQrImg').src = `https://api.qrserver.com/v1/create-qr-code/?size=150x150&data=${encodeURIComponent(link)}`;
+                    qrArea.style.display = 'block';
+                } else { qrArea.style.display = 'none'; }
+            } else { onlineArea.style.display = 'none'; qrArea.style.display = 'none'; }
+        }
+    }
+
+    function validateAndBook() {
+        document.querySelectorAll('.error-msg').forEach(e => e.style.display = 'none');
+        let err = false;
+        if (!selectedSeat) { document.getElementById('err-seat').style.display = 'block'; err = true; }
+        
+        const sid = document.getElementById('shift').value;
+        const editId = document.getElementById('editId').value;
+        const selectedShiftObj = config.shifts.find(x => x.id === sid);
+
+        const conflict = students.some(s => {
+            if (s.id === editId) return false;
+            if (s.seat !== selectedSeat) return false;
+            const otherShift = config.shifts.find(sh => sh.id === s.shift);
+            if (!otherShift) return false;
+            return (selectedShiftObj.start < otherShift.end && selectedShiftObj.end > otherShift.start);
+        });
+
+        if (conflict) {
+            alert("Error: This seat is already booked by another student in a conflicting time shift. Please choose another seat.");
+            return;
+        }
+
+        const method = document.getElementById('payMethod').value;
+        let pApp = document.getElementById('payApp').value;
+        let tId = document.getElementById('txnId').value.trim();
+        if(method === "Online") {
+            if(pApp === "Other") {
+                pApp = document.getElementById('otherAppName').value.trim();
+                if(!pApp) { document.getElementById('err-otherApp').style.display = 'block'; err = true; }
+            }
+            if(!tId) { document.getElementById('err-txnId').style.display = 'block'; err = true; }
+        }
+        if(err) return;
+
+        const sInfo = config.shifts.find(x => x.id === sid);
+        let existingFeeHistory = [];
+        let originalDate = new Date().toISOString(); 
+        let regNo = 'REG' + Math.floor(1000000000 + Math.random() * 9000000000).toString().slice(0,10);
+        let finalMode = method;
+        let finalApp = (method === "Online" ? pApp : "N/A");
+        let finalTxn = (method === "Online" ? tId : "N/A");
+        
+        if(editId) {
+            const oldRecord = students.find(x => x.id === editId);
+            if(oldRecord) {
+                existingFeeHistory = oldRecord.feeHistory || [];
+                originalDate = oldRecord.date;
+                regNo = oldRecord.regNo;
+                finalMode = oldRecord.mode;
+                finalApp = oldRecord.payApp;
+                finalTxn = oldRecord.txnId;
+            }
+        } else {
+            const currentMonth = new Date().toISOString().slice(0, 7);
+            existingFeeHistory = [{
+                month: currentMonth, entryDate: new Date().toISOString(), amount: sInfo.price,
+                mode: method, payApp: method === "Online" ? pApp : "Cash",
+                txnId: method === "Online" ? tId : "N/A", status: "PAID",
+                seatAtTime: selectedSeat, shiftAtTime: sInfo.name
+            }];
+        }
+        const data = {
+            id: editId || regNo, regNo: regNo, date: originalDate, 
+            name: document.getElementById('name').value, fname: document.getElementById('fname').value, 
+            mobile: document.getElementById('mobile').value, email: document.getElementById('email').value,
+            dob: document.getElementById('dob').value,
+            shift: sid, shiftName: sInfo.name, mode: finalMode, payApp: finalApp, txnId: finalTxn,
+            seat: selectedSeat, amount: sInfo.price, photo: photoData, feeHistory: existingFeeHistory 
+        };
+        if(editId) {
+            const old = students.find(x => x.id === editId);
+            db[old.shift] = db[old.shift].filter(n => n !== old.seat);
+            students = students.filter(x => x.id !== editId);
+        }
+        db[sid].push(selectedSeat); students.push(data);
+        saveToLocal();
+        alert("Record Saved Successfully!"); resetForm();
+    }
+
+    function generatePDF(data, feeEntryIndex = -1) {
+        const { jsPDF } = window.jspdf; 
+        const doc = new jsPDF();
+        let d = new Date(data.date);
+        let currentApp = data.payApp, currentTxn = data.txnId, currentMode = data.mode;
+        let currentAmount = data.amount, currentSeat = data.seat, currentShift = data.shiftName;
+        let paymentMonth = getFullMonthName(new Date(data.date).toISOString().slice(0, 7));
+        if(feeEntryIndex !== -1 && data.feeHistory && data.feeHistory[feeEntryIndex]) {
+            const selectedFee = data.feeHistory[feeEntryIndex];
+            const feeMonthDate = new Date(selectedFee.month + "-01");
+            d = new Date(feeMonthDate); d.setMonth(d.getMonth() + 1); d.setDate(new Date(data.date).getDate());
+            currentApp = selectedFee.payApp; currentTxn = selectedFee.txnId; currentMode = selectedFee.mode;
+            currentAmount = selectedFee.amount; paymentMonth = getFullMonthName(selectedFee.month);
+            if(selectedFee.seatAtTime) currentSeat = selectedFee.seatAtTime;
+            if(selectedFee.shiftAtTime) currentShift = selectedFee.shiftAtTime;
+        } else if(data.feeHistory && data.feeHistory.length > 0) {
+            const firstFee = data.feeHistory[0];
+            const feeMonthDate = new Date(firstFee.month + "-01");
+            d = new Date(feeMonthDate); d.setMonth(d.getMonth() + 1); d.setDate(new Date(data.date).getDate());
+            currentApp = firstFee.payApp; currentTxn = firstFee.txnId; currentMode = firstFee.mode;
+            currentAmount = firstFee.amount; paymentMonth = getFullMonthName(firstFee.month);
+            if(firstFee.seatAtTime) currentSeat = firstFee.seatAtTime;
+            if(firstFee.shiftAtTime) currentShift = firstFee.shiftAtTime;
+        } else d.setDate(d.getDate() + 30);
+        const dueDateStr = formatAppDate(d);
+        doc.setFontSize(22); doc.setTextColor(37, 99, 235);
+        doc.text(config.libName.toUpperCase(), 105, 20, {align:"center"});
+        doc.setFontSize(9); doc.setTextColor(100);
+        doc.text(`${config.address} - ${config.pin}`, 105, 26, {align:"center"});
+        doc.text("OFFICIAL REGISTRATION RECEIPT", 105, 32, {align:"center"});
+        doc.line(20, 35, 190, 35);
+        if(data.photo) { try { doc.addImage(data.photo, 'JPEG', 150, 45, 35, 35); } catch(e) {} }
+        doc.setFontSize(12); doc.setTextColor(0);
+        doc.text(`Registration No: ${data.regNo}`, 20, 50);
+        doc.text(`Name: ${data.name}`, 20, 60);
+        doc.text(`Guardian: ${data.fname}`, 20, 70);
+        doc.text(`Mobile: ${data.mobile}`, 20, 80);
+        doc.text(`Date of Birth: ${formatAppDate(data.dob)}`, 20, 90);
+        doc.text(`Seat Number: ${currentSeat}`, 20, 100);
+        doc.text(`Shift Plan: ${currentShift}`, 20, 110);
+        doc.setFont("helvetica", "bold"); doc.text(`Payment for Month: ${paymentMonth}`, 20, 120);
+        doc.setFont("helvetica", "normal"); doc.text(`Fee Paid: INR ${currentAmount} (${currentMode})`, 20, 130);
+        if(currentMode === "Online") { doc.setFontSize(10); doc.text(`App: ${currentApp} | Txn ID: ${currentTxn}`, 20, 138); }
+        doc.setFontSize(12); doc.text(`Registration Date: ${formatAppDate(data.date)}`, 20, 146);
+        doc.setFont("helvetica", "bold"); doc.setTextColor(239, 68, 68); doc.text(`NEXT FEE DUE DATE: ${dueDateStr}`, 20, 154);
+        doc.setTextColor(0); doc.setFont("helvetica", "normal"); doc.setFontSize(10); doc.text("Authorized Signature:", 150, 165);
+        if(config.signature) { try { doc.addImage(config.signature, 'PNG', 150, 168, 40, 20); } catch(e) {} }
+        doc.setDrawColor(239, 68, 68); doc.circle(40, 185, 20);
+        doc.setFontSize(7); doc.setTextColor(239, 68, 68); doc.text("PAID & VERIFIED", 40, 180, {align:"center"});
+        doc.text(config.libName, 40, 185, {align:"center"});
+        doc.text(`Ph: ${config.mobile}`, 40, 190, {align:"center"});
+        doc.save(`${data.name}_Receipt.pdf`);
+    }
+
+    function renderHistory() {
+        const body = document.getElementById('historyBody');
+        const query = document.getElementById('searchInput').value.toLowerCase();
+        if(historyFilter === 'attendance') { renderAdminAttendance(); return; }
+        body.innerHTML = '';
+        const today = new Date();
+        const filtered = students.filter(s => {
+            const matchesSearch = s.name.toLowerCase().includes(query) || s.regNo.toLowerCase().includes(query) || s.mobile.includes(query);
+            let dueDate = new Date(s.date);
+            if(s.feeHistory && s.feeHistory.length > 0) {
+                const lastFee = [...s.feeHistory].sort((a,b) => new Date(b.month) - new Date(a.month))[0];
+                const lastMonth = new Date(lastFee.month + "-01");
+                dueDate = new Date(lastMonth); dueDate.setMonth(dueDate.getMonth() + 1); dueDate.setDate(new Date(s.date).getDate());
+            } else dueDate.setDate(dueDate.getDate() + 30);
+            const isPaid = today < dueDate;
+            if(historyFilter === 'paid') return matchesSearch && isPaid;
+            if(historyFilter === 'pending') return matchesSearch && !isPaid;
+            return matchesSearch;
+        });
+        if(!filtered.length) { body.innerHTML = '<p style="text-align:center; margin-top:50px; color:#94a3b8">No records found matching your selection.</p>'; return; }
+        filtered.slice().reverse().forEach(s => {
+            let dueDate = new Date(s.date);
+            if(s.feeHistory && s.feeHistory.length > 0) {
+                const sortedFees = [...s.feeHistory].sort((a,b) => new Date(b.month) - new Date(a.month));
+                const lastFee = sortedFees[0];
+                const lastMonth = new Date(lastFee.month + "-01");
+                dueDate = new Date(lastMonth); dueDate.setMonth(dueDate.getMonth() + 1); dueDate.setDate(new Date(s.date).getDate());
+            } else dueDate.setDate(dueDate.getDate() + 30);
+            const dueDateStr = formatAppDate(dueDate);
+            let statusColor = (today < dueDate) ? "#22c55e" : "#ef4444";
+            let statusText = (today < dueDate) ? "FEE STATUS: PAID" : "FEE STATUS: PENDING";
+            const card = document.createElement('div'); card.className = 'history-card'; card.style.borderLeft = `6px solid ${statusColor}`;
+            card.innerHTML = `<div style="display:flex; gap:10px; align-items:center;">
+                    ${s.photo ? `<img src="${s.photo}" style="width:40px; height:40px; border-radius:50%; object-fit:cover;">` : ''}
+                    <div style="flex:1">
+                        <p><strong>${s.name}</strong> <span style="float:right; color:#64748b; font-size:0.7rem;">Reg: ${s.regNo}</span></p>
+                        <p style="font-size:0.8rem; margin:2px 0;">Seat: ${s.seat} | ${s.shiftName}</p>
+                        <p style="font-size:0.7rem; font-weight:bold; color:${statusColor}; margin-top:4px;">● ${statusText}</p>
+                        <p style="font-size:0.7rem; color:#475569;">Reg Date: ${formatAppDate(s.date)}</p>
+                        <p style="font-size:0.7rem; color:#475569;">Next Due Date: <strong>${dueDateStr}</strong></p>
+                    </div>
+                </div>
+                <div class="card-actions">
+                    <button class="btn-fee-h" onclick="openFeePanel('${s.id}')">Manage Fees</button>
+                    <button class="btn-att-h" onclick='openReportModal(${JSON.stringify(s)})'>Attendance Report</button>
+                    <button class="btn-edit-h" onclick="editRecord('${s.id}')">Edit</button>
+                    <button class="btn-del-h" onclick="deleteRecord('${s.id}')">Delete</button>
+                </div>`;
+            body.appendChild(card);
+        });
+    }
+
+    function openFeePanel(id) {
+        currentFeeStudentId = id;
+        const s = students.find(x => x.id === id);
+        document.getElementById('fee-panel').style.display = 'block';
+        document.getElementById('fee-student-name').innerText = `ID: ${s.regNo} | ${s.name} | Seat: ${s.seat}`;
+        document.getElementById('feeMonth').value = new Date().toISOString().slice(0, 7);
+        document.getElementById('feeAmount').value = s.amount;
+        document.getElementById('feePayMode').value = "Cash";
+        document.getElementById('editFeeLogIndex').value = "";
+        document.getElementById('btnFeeSubmit').innerText = "Deposit Fee";
+        document.getElementById('btnFeeCancel').style.display = "none";
+        document.querySelectorAll('.error-msg').forEach(e => e.style.display = 'none');
+        toggleQR('fee'); renderFeeLogs();
+        document.getElementById('fee-panel').scrollIntoView({ behavior: 'smooth' });
+    }
+
+    function saveNewMonthlyFee() {
+        document.querySelectorAll('.error-msg').forEach(e => e.style.display = 'none');
+        const monthValue = document.getElementById('feeMonth').value, amount = document.getElementById('feeAmount').value;
+        const mode = document.getElementById('feePayMode').value;
+        let app = document.getElementById('feePayApp').value;
+        const txn = document.getElementById('feeTxnId').value.trim(), editIndex = document.getElementById('editFeeLogIndex').value;
+        let err = false; if(!monthValue || !amount) return alert("Please fill month and amount!");
+        
+        const s = students.find(x => x.id === currentFeeStudentId); if(!s.feeHistory) s.feeHistory = [];
+        
+        const regMonthStr = s.date.slice(0, 7);
+        if(monthValue < regMonthStr) {
+            alert(`Error: Fee entry for months before registration (${getFullMonthName(regMonthStr)}) is not allowed!`);
+            return;
+        }
+
+        if(editIndex === "" && s.feeHistory.some(f => f.month === monthValue)) return alert("Error: This month's fee already recorded!");
+        if(mode === "Online") {
+            if(app === "Other") { app = document.getElementById('feeOtherAppName').value.trim(); if(!app) { document.getElementById('err-feeOtherApp').style.display = 'block'; err = true; } }
+            if(!txn) { document.getElementById('err-feeTxnId').style.display = 'block'; err = true; }
+        }
+        if(err) return;
+        const feeData = { month: monthValue, entryDate: new Date().toISOString(), amount: amount, mode: mode, payApp: mode === "Online" ? app : "Cash", txnId: mode === "Online" ? txn : "N/A", status: "PAID", seatAtTime: s.seat, shiftAtTime: s.shiftName };
+        if(editIndex !== "") { s.feeHistory[editIndex] = feeData; resetFeeForm(); } else s.feeHistory.push(feeData);
+        document.getElementById('feeTxnId').value = ""; document.getElementById('feeOtherAppName').value = "";
+        saveToLocal(); alert("Fee record saved."); renderFeeLogs(); renderHistory();
+    }
+
+    function resetFeeForm() {
+        document.getElementById('editFeeLogIndex').value = ""; 
+        document.getElementById('btnFeeSubmit').innerText = "Deposit Fee"; document.getElementById('btnFeeCancel').style.display = "none";
+        document.getElementById('feeMonth').value = new Date().toISOString().slice(0, 7);
+        document.getElementById('feePayMode').value = "Cash"; document.getElementById('feeTxnId').value = ""; 
+        document.getElementById('feeOtherAppName').value = ""; toggleQR('fee'); checkOtherApp('fee');
+    }
+
+    function renderFeeLogs() {
+        const s = students.find(x => x.id === currentFeeStudentId);
+        const tbody = document.getElementById('feeLogsBody'); tbody.innerHTML = '';
+        if(!s.feeHistory || s.feeHistory.length === 0) { tbody.innerHTML = '<tr><td colspan="6" style="text-align:center; color:#94a3b8;">No history found.</td></tr>'; return; }
+        s.feeHistory.forEach((f, index) => {
+            const tr = document.createElement('tr');
+            let actions = '';
+            if(index === 0) {
+                actions = `<button class="btn-dl-h" onclick="downloadSpecificMonth(${index})">PDF</button> <span style="font-size:0.6rem; color:#94a3b8;">(Locked)</span>`;
+            } else {
+                actions = `<button class="btn-fee-edit" onclick="editFeeEntry(${index})">Edit</button><button class="btn-dl-h" onclick="downloadSpecificMonth(${index})">PDF</button><button class="btn-fee-del" onclick="deleteFeeEntry(${index})">Del</button>`;
+            }
+            tr.innerHTML = `<td><strong>${getFullMonthName(f.month)}</strong></td><td>${formatAppDate(f.entryDate)}</td><td>₹${f.amount}</td><td>${f.mode === 'Online' ? f.payApp : 'Cash'}</td><td>${f.txnId}</td>
+                <td>${actions}</td>`;
+            tbody.appendChild(tr);
+        });
+    }
+
+    function downloadSpecificMonth(index) { const s = students.find(x => x.id === currentFeeStudentId); if(s) generatePDF(s, index); }
+
+    function editFeeEntry(index) {
+        if(index === 0) return;
+        const s = students.find(x => x.id === currentFeeStudentId), f = s.feeHistory[index];
+        document.getElementById('feeMonth').value = f.month; document.getElementById('feeAmount').value = f.amount;
+        document.getElementById('feePayMode').value = f.mode; document.getElementById('editFeeLogIndex').value = index;
+        document.getElementById('btnFeeSubmit').innerText = "Update Entry"; document.getElementById('btnFeeCancel').style.display = "block";
+        if(f.mode === "Online") {
+            const apps = ["PhonePe", "Google Pay", "Paytm", "Supermoney", "Navi", "BHIM"];
+            if(apps.includes(f.payApp)) document.getElementById('feePayApp').value = f.payApp;
+            else { document.getElementById('feePayApp').value = "Other"; document.getElementById('feeOtherAppName').value = f.payApp; }
+            document.getElementById('feeTxnId').value = f.txnId;
+        }
+        toggleQR('fee'); checkOtherApp('fee');
+    }
+
+    function deleteFeeEntry(index) { 
+        if(index === 0) return;
+        if(!confirm("Delete this fee record?")) return; 
+        const s = students.find(x => x.id === currentFeeStudentId); s.feeHistory.splice(index, 1); 
+        saveToLocal(); renderFeeLogs(); renderHistory(); 
+    }
+
+    function editRecord(id) {
+        const s = students.find(x => x.id === id); switchTab('booking-sec', document.querySelectorAll('.nav-item')[1]);
+        document.getElementById('editId').value = s.id; document.getElementById('name').value = s.name;
+        document.getElementById('fname').value = s.fname; document.getElementById('mobile').value = s.mobile;
+        document.getElementById('email').value = s.email; document.getElementById('shift').value = s.shift;
+        document.getElementById('dob').value = s.dob || '';
+        const payMethodSelect = document.getElementById('payMethod'), payAppSelect = document.getElementById('payApp');
+        const txnInput = document.getElementById('txnId'), otherAppInput = document.getElementById('otherAppName');
+        payMethodSelect.value = s.mode; payMethodSelect.disabled = true;
+        if(s.mode === "Online") {
+            txnInput.value = s.txnId; txnInput.readOnly = true;
+            const apps = ["PhonePe", "Google Pay", "Paytm", "Supermoney", "Navi", "BHIM"];
+            if(apps.includes(s.payApp)) payAppSelect.value = s.payApp;
+            else { payAppSelect.value = "Other"; otherAppInput.value = s.payApp; otherAppInput.readOnly = true; }
+            payAppSelect.disabled = true;
+        } else { payAppSelect.disabled = true; txnInput.readOnly = true; }
+        photoData = s.photo; if(photoData) { const prev = document.getElementById('photo-preview-img'); prev.src = photoData; prev.style.display = 'block'; }
+        selectedSeat = s.seat; document.getElementById('seatDisplay').value = "Seat No: " + s.seat;
+        document.getElementById('formTitle').innerText = "Update Registration";
+        document.getElementById('cancelEditBtn').style.display = "block"; document.getElementById('mainBtn').innerText = "Confirm to Update";
+        updateShift();
+    }
+
+    function deleteRecord(id) { 
+        if(!confirm("Erase this record?")) return; 
+        const s = students.find(x => x.id === id); 
+        db[s.shift] = db[s.shift].filter(n => n !== s.seat); 
+        attendances = attendances.filter(a => a.regNo !== s.regNo);
+        students = students.filter(x => x.id !== id); 
+        saveToLocal(); 
+        renderHistory(); 
+    }
+
+    function switchTab(id, el) {
+        document.querySelectorAll('.section').forEach(s => s.classList.remove('active'));
+        document.querySelectorAll('.nav-item').forEach(n => n.classList.remove('active'));
+        const target = document.getElementById(id);
+        if(target) target.classList.add('active'); if(el) el.classList.add('active');
+        if(id === 'history-sec') renderHistory();
+    }
+
+    function updateShift() {
+        const sid = document.getElementById('shift').value;
+        if(!sid) return document.getElementById('priceDisplay').innerText = `Payable: ₹0`;
+        const s = config.shifts.find(x => x.id === sid);
+        if(s) { document.getElementById('priceDisplay').innerText = `Payable: ₹${s.price}`; document.getElementById('err-shift-select').style.display = 'none'; }
+        toggleQR('main'); initGrid();
+    }
+
+    function resetForm() {
+        document.querySelectorAll('#booking-sec input').forEach(i => { i.value = ''; i.readOnly = false; });
+        document.querySelectorAll('#booking-sec select').forEach(s => { s.disabled = false; });
+        document.getElementById('otherAppName').readOnly = false; document.getElementById('editId').value = ''; 
+        photoData = null; selectedSeat = null; document.getElementById('shift').value = ""; 
+        document.getElementById('payMethod').value = "Cash"; document.getElementById('photo-preview-img').style.display = "none";
+        document.getElementById('cancelEditBtn').style.display = "none"; document.getElementById('formTitle').innerText = "Student Information";
+        document.getElementById('mainBtn').innerText = "Self Confirm Your Registration";
+        toggleQR('main'); backToDetails();
+    }
+</script>
+</body>
+</html>
